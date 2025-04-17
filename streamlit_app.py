@@ -1,63 +1,69 @@
 import streamlit as st
 import requests
-import pandas as pd
 
-API_KEY = "33247bdd475582ecc4324a1l6254a287"
-URL = "https://v3.football.api-sports.io/standings?league=140&season=2022"
+st.set_page_config(page_title="La Liga Predictor", layout="wide")
+st.title("⚽ La Liga Predictor (Gratis y en Vivo)")
 
-def obtener_tabla():
-    headers = {
-        "x-apisports-key": API_KEY
-    }
-    response = requests.get(URL, headers=headers)
-    if response.status_code == 200:
+# Temporada seleccionada
+season = st.selectbox("Seleccioná la temporada:", ["2024", "2023", "2022", "2021"])
+
+st.subheader(f"📊 Tabla de posiciones - Temporada {season}")
+
+# API gratuita de ZylaLabs
+@st.cache_data
+
+def obtener_tabla(season):
+    try:
+        url = "https://zylalabs.com/api/857/la+liga+table+api/635/obtain+la+liga+table"
+        params = {"season": season}
+        response = requests.get(url, params=params)
         data = response.json()
-        if data["response"]:
-            equipos = data["response"][0]["league"]["standings"][0]
-            tabla = []
-            for equipo in equipos:
-                tabla.append({
-                    "Posición": equipo.get("rank"),
-                    "Equipo": equipo["team"]["name"],
-                    "Puntos": equipo["points"],
-                    "PJ": equipo["all"]["played"],
-                    "PG": equipo["all"]["win"],
-                    "PE": equipo["all"]["draw"],
-                    "PP": equipo["all"]["lose"],
-                    "GF": equipo["all"]["goals"]["for"],
-                    "GC": equipo["all"]["goals"]["against"]
-                })
-            return pd.DataFrame(tabla)
-        else:
-            st.error("No hay datos disponibles para esta temporada.")
-            return None
-    else:
-        st.error("No se pudo conectar a la API. Verificá tu API Key.")
+
+        tabla = []
+        for team in data:
+            tabla.append({
+                "Pos": team["position"],
+                "Equipo": team["team"]["name"],
+                "PJ": team["stats"]["played"],
+                "G": team["stats"]["wins"],
+                "E": team["stats"]["draws"],
+                "P": team["stats"]["loses"],
+                "GF": team["stats"]["goalsFor"],
+                "GC": team["stats"]["goalsAgainst"],
+                "Pts": team["stats"]["points"]
+            })
+
+        return tabla
+    except:
         return None
 
-# INTERFAZ DE USUARIO
-st.title("⚽ La Liga Predictor (2022/23)")
-tabla = obtener_tabla()
+# Mostrar tabla
+tabla = obtener_tabla(season)
+if tabla:
+    st.dataframe(tabla, use_container_width=True)
+else:
+    st.error("No se pudo cargar la tabla. Intentá más tarde o probá con otra temporada.")
 
-if tabla is not None:
-    st.dataframe(tabla)
+st.subheader("🤖 ¿Quién tiene más chances de ganar?")
+equipos = [fila["Equipo"] for fila in tabla] if tabla else []
 
-    st.subheader("📊 Predicción de partido")
-    equipo1 = st.selectbox("Equipo 1", tabla["Equipo"])
-    equipo2 = st.selectbox("Equipo 2", tabla["Equipo"])
+col1, col2 = st.columns(2)
+with col1:
+    equipo1 = st.selectbox("Equipo 1", equipos)
+with col2:
+    equipo2 = st.selectbox("Equipo 2", equipos, index=1 if len(equipos) > 1 else 0)
 
-    if equipo1 and equipo2 and equipo1 != equipo2:
-        datos1 = tabla[tabla["Equipo"] == equipo1].iloc[0]
-        datos2 = tabla[tabla["Equipo"] == equipo2].iloc[0]
+if equipo1 != equipo2:
+    equipo1_stats = next((e for e in tabla if e["Equipo"] == equipo1), None)
+    equipo2_stats = next((e for e in tabla if e["Equipo"] == equipo2), None)
 
-        score1 = datos1["Puntos"] + datos1["GF"] - datos1["GC"]
-        score2 = datos2["Puntos"] + datos2["GF"] - datos2["GC"]
-
-        if score1 > score2:
-            st.success(f"🔥 Predicción: Gana {equipo1}")
-        elif score2 > score1:
-            st.success(f"🔥 Predicción: Gana {equipo2}")
+    if equipo1_stats and equipo2_stats:
+        st.markdown("### 🔮 Predicción")
+        if equipo1_stats["Pts"] > equipo2_stats["Pts"]:
+            st.success(f"{equipo1} tiene más chances de ganar.")
+        elif equipo2_stats["Pts"] > equipo1_stats["Pts"]:
+            st.success(f"{equipo2} tiene más chances de ganar.")
         else:
-            st.info("🔁 Predicción: Empate")
-    elif equipo1 == equipo2:
-        st.warning("Elegí dos equipos distintos.")
+            st.info("Es muy parejo, puede ser empate o cualquier cosa 🟰")
+else:
+    st.warning("Elegí dos equipos distintos.")
