@@ -2,7 +2,10 @@ import streamlit as st
 import requests
 import pandas as pd
 
-API_KEY = "33247bdd475582ecc4324a116254a287"  # 🔁 Reemplazá esto con tu API key real
+import streamlit as st
+
+API_KEY = st.secrets["api"]["key"]
+ # 🔁 Reemplazá esto con tu API key real
 
 headers = {
     "x-apisports-key": API_KEY
