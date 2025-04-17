@@ -5,7 +5,6 @@ import pandas as pd
 API_KEY = "33247bdd475582ecc4324a1l6254a287"
 URL = "https://v3.football.api-sports.io/standings?league=140&season=2022"
 
-
 def obtener_tabla():
     headers = {
         "x-apisports-key": API_KEY
@@ -37,7 +36,7 @@ def obtener_tabla():
         return None
 
 # INTERFAZ DE USUARIO
-st.title("⚽ La Liga Predictor (2023/24)")
+st.title("⚽ La Liga Predictor (2022/23)")
 tabla = obtener_tabla()
 
 if tabla is not None:
