@@ -3,7 +3,8 @@ import requests
 import pandas as pd
 
 API_KEY = "33247bdd475582ecc4324a1l6254a287"
-URL = "https://v3.football.api-sports.io/standings?league=140&season=2023"
+URL = "https://v3.football.api-sports.io/standings?league=140&season=2022"
+
 
 def obtener_tabla():
     headers = {
