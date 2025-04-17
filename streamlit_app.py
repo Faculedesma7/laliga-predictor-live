@@ -1,62 +1,65 @@
 import streamlit as st
 import requests
+import pandas as pd
 
-# Configuración de la página
-st.set_page_config(page_title="Predicción La Liga", layout="centered")
-st.title("⚽ La Liga - Tabla y Predicción de Partidos")
-
-# API-FOOTBALL
-API_KEY = "33247bdd475582ecc4324a1l6254a287"
+API_KEY = "33247bdd475582ecc4324a1l6254a287"  # Esta funciona
 URL = "https://v3.football.api-sports.io/standings?league=140&season=2023"
 
-headers = {
-    "x-apisports-key": API_KEY
-}
-
-response = requests.get(URL, headers=headers)
-data = response.json()
-
-try:
-    equipos = data["response"][0]["league"]["standings"][0]
-
-    tabla = []
-    nombres = []
-
-    for equipo in equipos:
-        tabla.append([
-            equipo["rank"],
-            equipo["team"]["name"],
-            equipo["points"],
-            equipo["all"]["win"],
-            equipo["all"]["draw"],
-            equipo["all"]["lose"]
-        ])
-        nombres.append(equipo["team"]["name"])
-
-    st.subheader("📊 Tabla de posiciones 2023/24")
-    st.table(tabla)
-
-    # Predicción
-    st.subheader("🔮 Predicción entre dos equipos")
-
-    equipo1 = st.selectbox("Elegí el primer equipo", nombres, key="e1")
-    equipo2 = st.selectbox("Elegí el segundo equipo", [e for e in nombres if e != equipo1], key="e2")
-
-    datos_e1 = next(e for e in equipos if e["team"]["name"] == equipo1)
-    datos_e2 = next(e for e in equipos if e["team"]["name"] == equipo2)
-
-    puntos1 = datos_e1["points"]
-    puntos2 = datos_e2["points"]
-
-    st.write(f"**{equipo1}** tiene {puntos1} puntos.")
-    st.write(f"**{equipo2}** tiene {puntos2} puntos.")
-
-    if puntos1 > puntos2:
-        st.success(f"✅ {equipo1} tiene más chances de ganar.")
-    elif puntos2 > puntos1:
-        st.success(f"✅ {equipo2} tiene más chances de ganar.")
+def obtener_tabla():
+    headers = {
+        "x-apisports-key": API_KEY
+    }
+    response = requests.get(URL, headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        try:
+            equipos = data["response"][0]["league"]["standings"][0]
+            tabla = []
+            for equipo in equipos:
+                tabla.append({
+                    "Posición": equipo["rank"],
+                    "Equipo": equipo["team"]["name"],
+                    "Puntos": equipo["points"],
+                    "PJ": equipo["all"]["played"],
+                    "PG": equipo["all"]["win"],
+                    "PE": equipo["all"]["draw"],
+                    "PP": equipo["all"]["lose"],
+                    "GF": equipo["all"]["goals"]["for"],
+                    "GC": equipo["all"]["goals"]["against"]
+                })
+            return pd.DataFrame(tabla)
+        except Exception as e:
+            st.error("Error al procesar la tabla. Intentá más tarde.")
+            return None
     else:
-        st.warning("⚖️ Están muy parejos. Podría ser empate.")
+        st.error("No se pudo cargar la tabla. Verificá tu API Key o espera unos minutos.")
+        return None
 
-except Exception as e:
-    st.error("❌ No se pudo cargar la tabla. Revisá la API Key o intentá más tarde.")
+st.title("⚽ La Liga Predictor (2023/24)")
+tabla = obtener_tabla()
+
+if tabla is not None:
+    st.dataframe(tabla)
+
+    st.subheader("📊 Predicción de partido")
+    equipo1 = st.selectbox("Elegí el primer equipo", tabla["Equipo"])
+    equipo2 = st.selectbox("Elegí el segundo equipo", tabla["Equipo"])
+
+    if equipo1 and equipo2 and equipo1 != equipo2:
+        datos1 = tabla[tabla["Equipo"] == equipo1].iloc[0]
+        datos2 = tabla[tabla["Equipo"] == equipo2].iloc[0]
+
+        score1 = datos1["Puntos"] + datos1["GF"] - datos1["GC"]
+        score2 = datos2["Puntos"] + datos2["GF"] - datos2["GC"]
+
+        if score1 > score2:
+            pred = f"Gana {equipo1}"
+        elif score2 > score1:
+            pred = f"Gana {equipo2}"
+        else:
+            pred = "Empate"
+
+        st.markdown(f"**Resultado estimado:** {pred}")
+    elif equipo1 == equipo2:
+        st.warning("Elegí dos equipos distintos.")
+
